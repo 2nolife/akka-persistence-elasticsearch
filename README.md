@@ -37,4 +37,4 @@ You probably wouldn't, unless you already have ES as a part of your infrastructu
 
 ## Versions
 
-This version of `akka-persistence-elasticsearch` requires akka 2.4 and elasticsearch 2.3. It _does not_ work with elasticsearch version 1.7 or older. This versions was only tested with elasticsearch 2.3.3.
+This version of `akka-persistence-elasticsearch` requires akka 2.4 and elasticsearch 2.3. It _does not_ work with elasticsearch version 1.7 or older. This version was only tested with elasticsearch 2.3.3.
