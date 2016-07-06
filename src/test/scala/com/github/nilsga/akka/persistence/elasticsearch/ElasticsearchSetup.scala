@@ -5,27 +5,27 @@ import java.util.UUID
 
 import akka.persistence.PluginSpec
 import com.sksamuel.elastic4s.ElasticClient
-import org.elasticsearch.common.settings.ImmutableSettings
-import org.scalatest.{Suite, BeforeAndAfterAll}
-
+import org.elasticsearch.cluster.metadata.IndexMetaData
+import org.elasticsearch.common.settings.Settings
+import org.scalatest.BeforeAndAfterAll
 
 trait ElasticsearchSetup extends BeforeAndAfterAll { this: PluginSpec =>
 
-  var esClient : ElasticClient = null
+  var esClient : ElasticClient = _
 
-  override protected def beforeAll(): Unit = {
+  override protected def beforeAll() {
     val dataDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(UUID.randomUUID().toString)
     dataDir.toFile.deleteOnExit()
     dataDir.toFile.mkdirs()
-    esClient = ElasticClient.local(ImmutableSettings.settingsBuilder()
+    esClient = ElasticClient.local(Settings.settingsBuilder()
       .put("path.home", dataDir.toFile.getAbsolutePath)
-      .put("path.repo", dataDir.toFile.getAbsolutePath)
-      .put("index.number_of_shards", 1)
-      .put("index.number_of_replicas", 0).build())
+      .put(IndexMetaData.SETTING_NUMBER_OF_SHARDS, 1)
+      .put(IndexMetaData.SETTING_NUMBER_OF_REPLICAS, 0)
+      .build())
     super.beforeAll()
   }
 
-  override protected def afterAll(): Unit = {
+  override protected def afterAll() {
     esClient.close()
     super.afterAll()
   }

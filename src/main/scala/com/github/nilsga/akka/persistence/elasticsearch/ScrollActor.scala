@@ -7,31 +7,27 @@ import akka.actor.{Actor, ActorRef, Props}
 import akka.pattern.pipe
 import akka.persistence.PersistentRepr
 import akka.serialization.SerializationExtension
-import com.github.nilsga.akka.persistence.elasticsearch.ScrollActor.{Execute, Finished, Scroll, Timeout}
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.{ElasticClient, SearchDefinition}
-import org.elasticsearch.action.search.SearchResponse
+import com.sksamuel.elastic4s.{ElasticClient, RichSearchResponse, SearchDefinition}
 import org.elasticsearch.common.Base64
+import ScrollActor._
 
 import scala.concurrent.duration._
-
 
 object ScrollActor {
   def mkProps(esClient: ElasticClient) = Props(new ScrollActor(esClient))
 
   case class Execute(query: SearchDefinition)
   case class Finished(originalSender: ActorRef, result: List[PersistentRepr])
-  case class Scroll(search: SearchResponse)
-  case class Timeout()
+  case class Scroll(search: RichSearchResponse)
+  case object Timeout
 }
 
 class ScrollActor(esClient: ElasticClient) extends Actor {
-
   import context._
 
   val serializer = SerializationExtension(context.system)
-  val timeout = context.system.scheduler.scheduleOnce(10 seconds, self, Timeout())
-
+  val timeout = context.system.scheduler.scheduleOnce(10 seconds, self, Timeout)
 
   @throws[Exception](classOf[Exception])
   override def postStop(): Unit = timeout.cancel()
@@ -39,7 +35,7 @@ class ScrollActor(esClient: ElasticClient) extends Actor {
   override def receive: Actor.Receive = {
     case Execute(query) =>
       esClient.execute(query).map(Scroll) pipeTo self
-      context.become(scroll(sender(), List()))
+      context.become(scroll(sender(), Nil))
     case Finished(originalSender, result) =>
       originalSender ! result
       context.stop(self)
@@ -60,11 +56,12 @@ class ScrollActor(esClient: ElasticClient) extends Actor {
           self ! Finished(originalSender, result)
           context.become(receive)
       }
-    case msg @ Failure => {
+
+    case msg @ Failure =>
       originalSender ! msg
       context.stop(self)
-    }
-    case Timeout() =>
+
+    case Timeout =>
       originalSender ! Failure(new TimeoutException("Scroll operation timed out"))
       context.stop(self)
   }

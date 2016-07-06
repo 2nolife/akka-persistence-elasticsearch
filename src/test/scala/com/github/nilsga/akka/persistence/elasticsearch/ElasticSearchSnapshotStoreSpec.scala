@@ -7,7 +7,7 @@ import com.typesafe.config.ConfigFactory
 
 import scala.collection.immutable.Seq
 
-class ElasticsearchSnapshotStoreSpec extends SnapshotStoreSpec(
+class ElasticSearchSnapshotStoreSpec extends SnapshotStoreSpec(
   config = ConfigFactory.parseString(
     s"""
       akka {

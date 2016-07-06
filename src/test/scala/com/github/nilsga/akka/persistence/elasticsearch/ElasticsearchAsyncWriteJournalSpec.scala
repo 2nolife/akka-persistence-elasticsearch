@@ -33,7 +33,7 @@ class ElasticsearchAsyncWriteJournalSpec extends JournalSpec(
   override def supportsAtomicPersistAllOfSeveralEvents: Boolean = false
   override protected def supportsRejectingNonSerializableObjects: CapabilityFlag = true
 
-  override def writeMessages(fromSnr: Int, toSnr: Int, pid: String, sender: ActorRef, writerUuid: String): Unit = {
+  override def writeMessages(fromSnr: Int, toSnr: Int, pid: String, sender: ActorRef, writerUuid: String) {
     super.writeMessages(fromSnr, toSnr, pid, sender, writerUuid)
     esClient.execute(refresh index "akkajournal").await
   }
