@@ -1,4 +1,4 @@
-# Elasticsearch distributed journal for Akka persistence (ES 2.3.3)
+# Elasticsearch distributed journal for Akka persistence (Elastic Search 2.3.3)
 
 Akka persistence distributed journal based on Elasticsearch.
 
@@ -37,4 +37,4 @@ You probably wouldn't, unless you already have ES as a part of your infrastructu
 
 ## Versions
 
-This version of `akka-persistence-elasticsearch` requires akka 2.4 and elasticsearch 2.3.x. It _does not_ work with elasticsearch version 1.7.x or older. This versions was tested only with elasticsearch 2.3.3.
+This version of `akka-persistence-elasticsearch` requires akka 2.4 and elasticsearch 2.3. It _does not_ work with elasticsearch version 1.7 or older. This versions was only tested with elasticsearch 2.3.3.
