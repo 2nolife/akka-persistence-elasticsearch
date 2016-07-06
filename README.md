@@ -1,4 +1,4 @@
-# Elasticsearch distributed journal for Akka persistence
+# Elasticsearch distributed journal for Akka persistence (this fork uses ES version 2.3.3)
 
  ![Travis build status](https://travis-ci.org/nilsga/akka-persistence-elasticsearch.svg?branch=master)
 
