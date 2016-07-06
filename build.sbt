@@ -2,11 +2,11 @@ organization := "com.github.nilsga"
 
 name := "akka-persistence-elasticsearch"
 
-version := "1.0.3"
+version := "1.0.3_233"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.8"
 
-val akkaVersion = "2.4.1"
+val akkaVersion = "2.4.7"
 
 licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
 
@@ -28,10 +28,11 @@ publishTo := {
 }
 
 libraryDependencies ++= Seq(
-  "org.elasticsearch"  % "elasticsearch"             % "1.7.1",
-  "com.sksamuel.elastic4s" %% "elastic4s-streams" % "1.7.4",
-  "com.typesafe.akka"      %% "akka-persistence"                  % akkaVersion,
-  "com.typesafe.akka"      %% "akka-slf4j"                        % akkaVersion % "test",
-  "com.typesafe.akka"      %% "akka-persistence-tck"              % akkaVersion  % "test",
-  "ch.qos.logback"         % "logback-classic" % "1.1.3" % "test"
+  "org.elasticsearch"      %  "elasticsearch"        % "2.3.3",
+  "com.sksamuel.elastic4s" %% "elastic4s-streams"    % "2.3.0",
+  "com.typesafe.akka"      %% "akka-persistence"     % akkaVersion,
+  "com.typesafe.akka"      %% "akka-slf4j"           % akkaVersion  % "test",
+  "com.typesafe.akka"      %% "akka-persistence-tck" % akkaVersion  % "test",
+  "ch.qos.logback"         %  "logback-classic"      % "1.1.7"      % "test",
+  "net.java.dev.jna"       %  "jna"                  % "4.2.2"      % "test"
 )
