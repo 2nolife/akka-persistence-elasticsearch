@@ -11,11 +11,11 @@ akka.persistence.journal.plugin = "elasticsearch-journal"
 akka.persistence.snapshot-store.plugin = "elasticsearch-snapshot-store"
 
 elasticsearch-journal {
-  class = "com.github.nilsga.akka.persistence.elasticsearch.ElasticSearchAsyncWriteJournal"
+  class = "com.github.nilsga.akka.persistence.elasticsearch.ElasticsearchAsyncWriteJournal"
 }
 
 elasticsearch-snapshot-store {
-  class = "com.github.nilsga.akka.persistence.elasticsearch.ElasticSearchSnapshotStore"
+  class = "com.github.nilsga.akka.persistence.elasticsearch.ElasticsearchSnapshotStore"
 }
 
 elasticsearch-persistence {
