@@ -1,4 +1,4 @@
-# Elasticsearch distributed journal for Akka persistence
+# Elasticsearch distributed journal for Akka persistence (ES 2.3.3)
 
 Akka persistence distributed journal based on Elasticsearch.
 
