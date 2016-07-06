@@ -17,44 +17,35 @@ trait ElasticsearchAsyncRecovery extends AsyncRecovery with ActorLogging {
   this : ElasticsearchAsyncWriteJournal =>
 
   import context._
+
   implicit def scrollTimeout = Timeout(60 seconds)
+  implicit private def long2string(x: Long): String = x.toString
 
   override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = {
     esClient.execute(refresh index journalIndex).flatMap(_ => {
       val maxSearch = esClient.execute(search in journalIndex / journalType query {
-        filteredQuery filter {
-          termFilter("persistenceId", persistenceId)
-        }
+        termQuery("persistenceId", persistenceId)
       } aggregations {
         aggregation max "maxSeqNr" field "sequenceNumber"
       })
 
       maxSearch.map(response => {
         val max = response.aggregations.asMap().get("maxSeqNr").asInstanceOf[Max].getValue
-        max.isInfinite || max.isNaN match {
-          case true => 0
-          case false => max.toLong
-        }
+        if (max.isInfinite || max.isNaN) 0 else max.toLong
       })
     })
   }
 
-  override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Future[Unit] = {
-    val end = toSequenceNr - fromSequenceNr match {
-      case num if num < max =>
-        toSequenceNr
-      case _ =>
-        fromSequenceNr + max - 1
-    }
+  override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)
+                                  (replayCallback: (PersistentRepr) => Unit): Future[Unit] = {
+    val end = if (toSequenceNr - fromSequenceNr < max) toSequenceNr else fromSequenceNr + max - 1
     esClient.execute(refresh index journalIndex).flatMap(_ => {
       val query = search in journalIndex / journalType query {
-        filteredQuery filter {
-          and(
-            termFilter("persistenceId", persistenceId),
-            termFilter("deleted", false),
-            rangeFilter("sequenceNumber") gte fromSequenceNr.toString lte end.toString
-          )
-        }
+        must(
+          termQuery("persistenceId", persistenceId),
+          termQuery("deleted", false),
+          rangeQuery("sequenceNumber") gte fromSequenceNr lte end
+        )
       } sourceInclude "message" scroll "1m"
 
       val scroll = system.actorOf(ScrollActor.mkProps(esClient))
@@ -62,7 +53,7 @@ trait ElasticsearchAsyncRecovery extends AsyncRecovery with ActorLogging {
       (scroll ? Execute(query)).mapTo[List[PersistentRepr]].onComplete {
         case Success(result) =>
           result.sortWith((r1, r2) => r1.sequenceNr < r2.sequenceNr).foreach(replayCallback)
-          promise.success()
+          promise.success((): Unit)
         case Failure(ex) =>
           promise.failure(ex)
       }

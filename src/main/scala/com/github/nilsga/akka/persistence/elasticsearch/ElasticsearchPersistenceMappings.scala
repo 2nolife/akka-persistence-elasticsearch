@@ -13,33 +13,27 @@ object ElasticsearchPersistenceMappings {
     import extension._
     val client = extension.client
     val persistenceIndex = extension.config.index
-    client.execute(index exists persistenceIndex).flatMap(_.isExists match {
-      case true =>
-        val putMapping = put mapping persistenceIndex / mappingType dynamic Strict as mapping
-        client.execute(putMapping).map(_ => Unit)
-      case false =>
-        val putMapping = put mapping persistenceIndex / mappingType dynamic Strict as mapping
-        client.execute(create index persistenceIndex).flatMap(resp => client.execute(putMapping).map(_ => Unit))
-    })
+    val putMapping = put mapping persistenceIndex / mappingType dynamic Strict fields mapping
+    client.execute(index exists persistenceIndex).flatMap(r =>
+      if (r.isExists) client.execute(putMapping).map(_ => Unit)
+      else client.execute(create index persistenceIndex).flatMap(resp => client.execute(putMapping).map(_ => Unit))
+    )
   }
 
-  def ensureJournalMappingExists()(implicit extension : ElasticsearchPersistenceExtensionImpl) : Future[Unit] = {
+  def ensureJournalMappingExists()(implicit extension : ElasticsearchPersistenceExtensionImpl) : Future[Unit] =
     ensureIndexAndMappingExists(extension.config.journalType, Seq(
       field name "persistenceId" withType StringType index NotAnalyzed,
       field name "sequenceNumber" withType LongType,
       field name "message" withType StringType index NotAnalyzed,
       field name "deleted" withType BooleanType
     ))
-  }
 
-  def ensureSnapshotMappingExists()(implicit extension : ElasticsearchPersistenceExtensionImpl) : Future[Unit] = {
+  def ensureSnapshotMappingExists()(implicit extension : ElasticsearchPersistenceExtensionImpl) : Future[Unit] =
     ensureIndexAndMappingExists(extension.config.snapshotType, Seq(
       field name "persistenceId" withType StringType index NotAnalyzed,
       field name "sequenceNumber" withType LongType,
       field name "timestamp" withType LongType,
       field name "snapshot" withType StringType index NotAnalyzed
     ))
-  }
 
 }
-

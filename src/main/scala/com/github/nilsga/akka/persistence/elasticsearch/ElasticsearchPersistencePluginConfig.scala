@@ -1,11 +1,15 @@
 package com.github.nilsga.akka.persistence.elasticsearch
 
-import akka.actor.ActorSystem
-import com.sksamuel.elastic4s.{ElasticsearchClientUri, ElasticClient}
-import com.typesafe.config.Config
-import org.elasticsearch.common.settings.ImmutableSettings
-import scala.collection.JavaConversions._
+import java.nio.file.Paths
+import java.util.UUID
 
+import akka.actor.ActorSystem
+import com.sksamuel.elastic4s.{ElasticClient, ElasticsearchClientUri}
+import com.typesafe.config.Config
+import org.elasticsearch.cluster.ClusterName
+import org.elasticsearch.common.settings.Settings
+
+import scala.collection.JavaConversions._
 
 object ElasticsearchPersistencePluginConfig {
 
@@ -18,13 +22,22 @@ class ElasticsearchPersistencePluginConfig(config: Config) {
   val snapshotType = "snapshot"
   val index = config.getString("index")
   val cluster = config.getString("cluster")
+
   def createClient = config.hasPath("local") && config.getBoolean("local") match {
     case true =>
-      ElasticClient.local(ImmutableSettings.settingsBuilder().put("node.data", false).put("node.master", false).build())
+      val dataDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(UUID.randomUUID().toString)
+      dataDir.toFile.deleteOnExit()
+      dataDir.toFile.mkdirs()
+      ElasticClient.local(Settings.settingsBuilder()
+        .put("node.data", false)
+        .put("node.master", false)
+        .put("path.home", dataDir.toFile.getAbsolutePath)
+        .build())
+
     case false =>
-      val esSettings = ImmutableSettings.settingsBuilder().put("cluster.name", cluster).build()
-      val nodes = config.getStringList("nodes").map(node => if(node.indexOf(":") >= 0) node else s"$node:9300")
+      val esSettings = Settings.settingsBuilder().put(ClusterName.SETTING, cluster).build()
+      val nodes = config.getStringList("nodes").map(node => if (node.indexOf(":") >= 0) node else s"$node:9300")
       val connectionString = s"elasticsearch://${nodes.mkString(",")}"
-      ElasticClient.remote(esSettings, ElasticsearchClientUri(connectionString))
+      ElasticClient.transport(esSettings, ElasticsearchClientUri(connectionString))
   }
 }

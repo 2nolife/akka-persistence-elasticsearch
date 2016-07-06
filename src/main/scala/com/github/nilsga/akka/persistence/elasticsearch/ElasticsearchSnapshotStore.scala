@@ -16,43 +16,40 @@ import scala.collection.JavaConversions
 import scala.concurrent.{Future, Promise}
 
 class ElasticsearchSnapshotStore extends SnapshotStore {
-
   import context._
+
   implicit val extension = ElasticsearchPersistenceExtension(system)
   val serializer = SerializationExtension(system)
   val esClient = extension.client
   val persistenceIndex = extension.config.index
   val snapshotType = extension.config.snapshotType
 
+  implicit private def long2string(x: Long): String = x.toString
+
   override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = {
     esClient.execute(refresh index persistenceIndex).flatMap(_ => {
       val query = search in persistenceIndex / snapshotType query {
-        filteredQuery filter {
-          and(
-            termFilter("persistenceId", persistenceId),
-            rangeFilter("sequenceNumber") gte criteria.minSequenceNr.toString lte criteria.maxSequenceNr.toString,
-            rangeFilter("timestamp") gte criteria.minTimestamp.toString lte criteria.maxTimestamp.toString
-          )
-        }
-      } sourceInclude ("_id") sort (field sort "timestamp" order SortOrder.DESC)
+        must(
+          termQuery("persistenceId", persistenceId),
+          rangeQuery("sequenceNumber") gte criteria.minSequenceNr lte criteria.maxSequenceNr,
+          rangeQuery("timestamp") gte criteria.minTimestamp lte criteria.maxTimestamp
+        )
+      } sourceInclude "_id" sort (field sort "timestamp" order SortOrder.DESC)
 
       esClient.execute(query).flatMap(searchResponse => {
         val gets = searchResponse.hits.map(get id _.id from persistenceIndex / snapshotType)
         esClient.execute(multiget(gets))
-      }).map(multiGetResponse => {
-        val responses = JavaConversions.asScalaIterator(multiGetResponse.iterator()).map(_.getResponse)
-        responses.collectFirst {
-          case r if r.isExists => toSelectedSnapshot(r)
-        }
-      })
+      }).map(multiGetResponse =>
+        multiGetResponse.responses.collectFirst { case r if !r.isFailed => toSelectedSnapshot(r.response.get) }
+      )
     })
   }
 
-  private def toSelectedSnapshot(response : GetResponse) = {
+  private def toSelectedSnapshot(response : GetResponse): SelectedSnapshot = {
     val source = response.getSourceAsMap
     val persistenceId = source.get("persistenceId").asInstanceOf[String]
-    val sequenceNr = source.get("sequenceNumber").asInstanceOf[Number].longValue()
-    val timestamp = source.get("timestamp").asInstanceOf[Number].longValue()
+    val sequenceNr = source.get("sequenceNumber").asInstanceOf[Number].longValue
+    val timestamp = source.get("timestamp").asInstanceOf[Number].longValue
     val snapshotB64 = source.get("snapshot").asInstanceOf[String]
     val snapshot = serializer.deserialize[Snapshot](Base64.decode(snapshotB64), classOf[Snapshot]).get.data
     SelectedSnapshot(SnapshotMetadata(persistenceId, sequenceNr, timestamp), snapshot)
@@ -76,28 +73,26 @@ class ElasticsearchSnapshotStore extends SnapshotStore {
   }
 
   override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] = {
-    val snapshotsToDelete = esClient.publisher(search in persistenceIndex / snapshotType sourceInclude ("_id") query {
-      filteredQuery filter {
-        and(
-          termFilter("persistenceId", persistenceId),
-          rangeFilter("sequenceNumber").gte(criteria.minSequenceNr.toString).lte(criteria.maxSequenceNr.toString),
-          rangeFilter("timestamp").gte(criteria.minTimestamp.toString).lte(criteria.maxTimestamp.toString)
-        )
-      }
+    val snapshotsToDelete = esClient.publisher(search in persistenceIndex / snapshotType sourceInclude "_id" query {
+      must(
+        termQuery("persistenceId", persistenceId),
+        rangeQuery("sequenceNumber") gte criteria.minSequenceNr lte criteria.maxSequenceNr,
+        rangeQuery("timestamp") gte criteria.minTimestamp lte criteria.maxTimestamp
+      )
     } scroll "1m")
 
     val reqBuilder = new RequestBuilder[RichSearchHit] {
-      override def request(t: RichSearchHit): BulkCompatibleDefinition = {
+      override def request(t: RichSearchHit): BulkCompatibleDefinition =
         delete id t.id from persistenceIndex / snapshotType
-      }
     }
 
     val promise = Promise[Unit]
 
-    val subscriber = esClient.subscriber[RichSearchHit](100, 1, completionFn = () => {
-      promise.success()
-    }
-      , errorFn = (ex) => promise.failure(ex))(reqBuilder, context.system)
+    val subscriber = esClient.subscriber(
+      100, 1,
+      completionFn = () => promise.success((): Unit),
+      errorFn = (ex) => promise.failure(ex)
+    )(reqBuilder, context.system)
 
     snapshotsToDelete.subscribe(subscriber)
 
