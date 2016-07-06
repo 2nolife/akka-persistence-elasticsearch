@@ -1,9 +1,8 @@
 # Elasticsearch distributed journal for Akka persistence
-#### This fork uses Elastic Search version 2.3.3 which is not backward compatible with the original 1.7.1
-
- ![Travis build status](https://travis-ci.org/nilsga/akka-persistence-elasticsearch.svg?branch=master)
 
 Akka persistence distributed journal based on Elasticsearch.
+
+This fork uses Elastic Search version 2.3.3 which is not backward compatible with the original 1.7.1 version.
 
 ## Configuration
 
